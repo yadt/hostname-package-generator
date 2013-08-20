@@ -7,7 +7,7 @@ TESTOUT := $(CURDIR)/test
 
 GITREV := HEAD
 
-REVISION := "$(shell git rev-list $(GITREV) -- $(TOPLEVEL) 2>/dev/null| wc -l)$(EXTRAREV)"
+REVISION := "$(shell git rev-list $(GITREV) -- $(TOPLEVEL) 2>/dev/null| wc -l)"
 VERSION := $(shell cat VERSION 2>/dev/null).$(REVISION)
 PV = hostname-package-generator-$(VERSION)
 
@@ -55,7 +55,7 @@ tgz: clean
 	mkdir -p dist build/$(PV) build/BUILD
 	cp -r $(TOPLEVEL) build/$(PV)
 	mv build/$(PV)/*.spec build/
-	sed -i -e s/__VERSION__/$(VERSION)/ build/*.spec
+	sed -i -e "s/__VERSION__/$(VERSION)/" -e "s/__EXTRAREV__/$(EXTRAREV)/" build/*.spec
 	sed -i -e s/__VERSION__/$(VERSION)/ build/$(PV)/hostname-package
 	tar -czf dist/$(PV).tar.gz -C build $(PV)
 

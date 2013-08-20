@@ -1,6 +1,6 @@
 Name: hostname-package-generator
 Version: __VERSION__
-Release: 1
+Release: 1__EXTRAREV__
 Summary: Generate hostname RPM package
 Group: Applications/System
 License: GPL
