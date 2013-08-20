@@ -28,3 +28,13 @@ Set the KEEPWORKDIR environment variable to keep the build area for debugging.
 Licensed under the GNU General Public License, see 
 http://www.gnu.org/licenses/gpl.txt for full text.
 ```
+
+Typical Usage:
+--------------
+
+Install a hostname package with `hostname-package --generate` and depend in other packages on one of the names provided by it. Run `hostname-package` to view the installed hostname RPM.
+
+Installation
+------------
+
+Clone this git repo and run `make` to run the tests and create an RPM. For production use it is recommended to use `make srpm` and build the resulting src.rpm into the noarch.rpm in your RPM build environment.
