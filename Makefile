@@ -34,20 +34,20 @@ test: clean
 	./hostname-package --out $(TESTOUT) --generate --fqdn test.domain
 	test -s $(TESTOUT)/hostname-test.domain-*.rpm
 	rpm -qp $(TESTOUT)/hostname-test.domain-*.rpm
-	rpm -qp $(TESTOUT)/hostname-test.domain-*.rpm --provides | grep ^hostname-test.domain$$
-	rpm -qp $(TESTOUT)/hostname-test.domain-*.rpm --provides | grep ^hostname-test$$
+	rpm -qp $(TESTOUT)/hostname-test.domain-*.rpm --provides | grep '^hostname-test.domain *$$'
+	rpm -qp $(TESTOUT)/hostname-test.domain-*.rpm --provides | grep '^hostname-test *$$'
 	@echo
 	@echo "TEST prefix"
 	rm -f $(TESTOUT)/*.rpm
 	./hostname-package --out $(TESTOUT) --generate --fqdn test.domain --prefix something
 	test -s $(TESTOUT)/hostname-test.domain-*.rpm
-	rpm -qp $(TESTOUT)/hostname-test.domain-*.rpm --provides | grep ^something-hostname-package$$
+	rpm -qp $(TESTOUT)/hostname-test.domain-*.rpm --provides | grep '^something-hostname-package *$$'
 	@echo
 	@echo "TEST provides"
 	rm -f $(TESTOUT)/*.rpm
 	./hostname-package --out $(TESTOUT) --generate --fqdn test.domain --provides something-else
 	test -s $(TESTOUT)/hostname-test.domain-*.rpm
-	rpm -qp $(TESTOUT)/hostname-test.domain-*.rpm --provides | grep ^something-else$$
+	rpm -qp $(TESTOUT)/hostname-test.domain-*.rpm --provides | grep '^something-else *$$'
 	@echo
 
 tgz: clean
