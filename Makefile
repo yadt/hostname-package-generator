@@ -11,6 +11,10 @@ REVISION := "$(shell git rev-list $(GITREV) -- $(TOPLEVEL) 2>/dev/null| wc -l)$(
 VERSION := $(shell cat VERSION 2>/dev/null).$(REVISION)
 PV = hostname-package-generator-$(VERSION)
 
+# make sure to build RHEL5-compatible RPMs
+
+RPMBUILD_OPTS := --define="_binary_payload w9.bzdio" --define="_source_filedigest_algorithm md5" --define="_binary_filedigest_algorithm md5"
+
 .PHONY: all test srpm clean rpm info rpminfo
 
 all: rpminfo
@@ -57,12 +61,12 @@ tgz: clean
 
 srpm: tgz
 	@echo "Creating SOURCE RPM"
-	rpmbuild --define="_topdir $(CURDIR)/build" --define="_sourcedir $(CURDIR)/dist" --define="_srcrpmdir $(CURDIR)/dist" --nodeps -bs build/*.spec
+	rpmbuild $(RPMBUILD_OPTS) --define="_topdir $(CURDIR)/build" --define="_sourcedir $(CURDIR)/dist" --define="_srcrpmdir $(CURDIR)/dist" --nodeps -bs build/*.spec
 
 rpm: srpm
 	@echo "Creating BINARY RPM"
 	ln -svf ../dist build/noarch
-	rpmbuild --define="_topdir $(CURDIR)/build" --define="_rpmdir %{_topdir}" --rebuild $(CURDIR)/dist/*.src.rpm
+	rpmbuild $(RPMBUILD_OPTS) --define="_topdir $(CURDIR)/build" --define="_rpmdir %{_topdir}" --rebuild $(CURDIR)/dist/*.src.rpm
 	@echo
 	@echo
 	@echo
@@ -81,7 +85,7 @@ rpmrepo: rpm
 	repoclient uploadto "$(TARGET_REPO)" dist/*.rpm
 
 clean:
-	rm -Rf dist/*.rpm dist/*.deb build test
+	rm -Rf dist build test
 
 # todo: create debian/RPM changelog automatically, e.g. with git-dch --full --id-length=10 --ignore-regex '^fixes$' -S -s 68809505c5dea13ba18a8f517e82aa4f74d79acb src doc *.spec
 
