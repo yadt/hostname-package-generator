@@ -1,0 +1,135 @@
+#!/bin/bash
+#
+# This script generates an RPM that provides the hostname in the RPM database
+#
+# Author: Schlomo Schapiro <schlomo.schapiro@immobilienscout24.de>
+#
+# License: GPL
+#
+
+VERSION=__VERSION__
+PROGRAM=$0
+function usage {
+cat <<EOF
+$PROGRAM $VERSION
+
+Manage an RPM that provides the hostname in the RPM database.
+
+Usage:
+
+$PROGRAM [Options ...]
+
+Options:
+    --help          Show help
+    --generate      Generate and install new hostname package
+    --out DIR       Write resulting RPM to DIR instead of installing it
+    --fqdn FQDN     Use FQDN instead of 'hostname -f'
+    --prefix PREFIX Use PREFIX instead of yadt for the generic
+                    yadt-hostname-package provide
+    --provides PROV Additional RPM Provides
+
+Called without options will display the current status of the hostname package.
+
+Set the KEEPWORKDIR environment variable to keep the build area for debugging.
+
+Licensed under the GNU General Public License, see 
+http://www.gnu.org/licenses/gpl.txt for full text.
+EOF
+exit 1
+}
+
+# Parse options
+OPTS="$(getopt -n $PROGRAM -o h -l "help,generate,out:,provides:,fqdn:,prefix:" -- "$@")"
+if (( $? != 0 )); then
+    echo 1>&2 "Try '$PROGRAM --help' for more information."
+    exit 1
+fi
+
+DO_GENERATE=
+FQDN=
+PREFIX=yadt
+PROVIDES=
+OUTDIR=
+
+eval set -- "$OPTS"
+while true; do
+    case "$1" in
+        (-h|--help) usage ;;
+        (--generate) DO_GENERATE=1 ;;
+        (--out) shift; OUTDIR="$1" ;;
+        (--fqdn) shift; FQDN="$1" ;;
+        (--prefix) shift; PREFIX="$1" ;;
+        (--provides) shift; PROVIDES="$1" ;;
+        (--) shift; break;;
+        (*) break;;
+    esac
+    shift
+done
+
+if [[ -z "$FQDN" ]] ; then
+    FQDN=$(hostname -f)
+fi
+
+SHORT_HOST="${FQDN%%.*}"
+
+OLD_HOSTNAME_PACKAGES=$(rpm -q --whatprovides yadt-hostname-package --queryformat "%{NAME} = %{VERSION}-%{RELEASE}, " 2>/dev/null)
+SPEC="Name: hostname-$FQDN
+Summary: Provide $FQDN host name in RPM database
+Version: $(date +%Y.%m.%d)
+Release: $(date +%H.%M.%S)
+License: GPL
+Packager: hostname-package $VERSION
+Provides: $PREFIX-hostname-package, hostname-$FQDN, hostname-$SHORT_HOST, $PROVIDES
+Obsoletes: $PREFIX-hostname-package < %{version}-%{release}, $OLD_HOSTNAME_PACKAGES
+BuildArch: noarch
+AutoReqProv: no
+
+%description
+Dependency package to provide the local hostname in RPM database.
+
+%files
+"
+
+# debug info stderr which goes to webserver error log
+# declare -p 1>&2
+
+function Error() {
+	echo 1>&2 "$0 ERROR: $@"
+	exit 1
+}
+
+type -p rpmbuild &>/dev/null || Error "need rpmbuild in PATH"
+
+shopt -s nullglob
+
+
+if [[ "$DO_GENERATE" ]] ; then
+    # create work area and remove it at the end
+    WORK=$(mktemp -p /dev/shm -t -d "$(basename "$0").XXXXXXXXXX")
+    trap "${KEEPWORKDIR:+echo Please do not forget to} rm -Rf $WORK 1>&2" 0
+
+    mkdir -p $WORK/rpmbuild/{RPMS,BUILD}
+    if [[ "$OUTDIR" ]] ; then
+        ln -s "$(readlink -f "$OUTDIR")" $WORK/rpmbuild/RPMS/noarch
+    else
+        mkdir -p $WORK/rpmbuild/RPMS/noarch
+    fi
+    echo "$SPEC" >$WORK/hostname-$FQDN.spec
+    HOME=$WORK rpmbuild --define="_topdir $WORK/rpmbuild" -bb $WORK/hostname-$FQDN.spec 2>$WORK/rpmbuild.error 1>&2 || Error "Could not build RPM for host '$FQDN'
+    $(<$WORK/rpmbuild.error)"
+
+    RPM=( $WORK/rpmbuild/RPMS/noarch/hostname-${FQDN}*.rpm )
+    if [[ ! -s "$RPM" ]] ; then
+	    Error "Could not find rpmbuild result file"
+    fi
+    if [[ "$OUTDIR" ]] ; then
+        OUTRPM=$OUTDIR/$(basename $RPM)
+        test -s $OUTRPM || Error "Expected file $OUTRPM is missing - Please debug me!"
+        echo "Wrote $OUTRPM"
+    else
+        rpm -U --nodeps --force $RPM || Error "Could not install rpm -U '$RPM'"
+    fi
+else
+    RPMS=( $(rpm -q --whatprovides $PREFIX-hostname-package) ) || Error "No $PREFIX-hostname-package installed"
+    exec rpm -qi --provides "${RPMS[@]}"
+fi
